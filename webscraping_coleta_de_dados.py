@@ -30,15 +30,15 @@ BASE_EVENT_KEYWORDS = [
 START_YEAR = 2014 
 END_YEAR = 2024
 EXCLUDE_EVENT_KEYWORDS = ["no-gi", "no gi", "nogi", "abu dhabi", "adcc"] # Palavras a excluir
-OUTPUT_CSV_FILE = 'flograppling_results_v12.3_filtered_events.csv'# Nome do arquivo de saída
-MAX_EVENTS_TO_PROCESS = None
+OUTPUT_CSV_FILE = 'bjj_dado_cru.csv'# Nome do arquivo de saída
+MAX_EVENTS_TO_PROCESS = 1
 WAIT_TIMEOUT = 25
 SHORT_WAIT = 7
 SEARCH_PAUSE = 6 # Pausa entre buscas
 EXTRA_LOAD_PAUSE = 5 # Pausa após filtros/clicks
 TARGET_STAGE_KEYWORDS = {'final', 'semi', 'quarter'}# Define quais fases da competição serão extraídas
 
-# --- Função para configurar o WebDriver ---
+# Função para configurar o WebDriver
 def setup_driver():
     print("Configurando o WebDriver...")
     options = webdriver.ChromeOptions()
@@ -60,7 +60,7 @@ def setup_driver():
         import traceback; traceback.print_exc()
         return None
 
-# --- Função para aceitar cookies ---
+# Função para aceitar cookies
 def accept_cookies(driver):
     try:
         cookie_selectors = [
@@ -90,7 +90,7 @@ def accept_cookies(driver):
         return False
     except Exception: return False
 
-# --- Função para buscar links de eventos (v12.2 - Múltiplos Formatos de Busca) ---
+# Função para buscar links dos eventos
 def find_event_links(driver):
     print("Buscando eventos ano a ano (com múltiplos formatos de busca)...")
     all_found_links = {}
@@ -155,8 +155,7 @@ def find_event_links(driver):
                    search_queries_to_try.append(f"Brazilian National {year} Jiu-Jitsu Championship")
                    search_queries_to_try.append(f"Brazilian National IBJJF {year} Jiu-Jitsu Championship")
                    
-                # Adicione mais 'elif' para outros campeonatos se precisar de variações
-
+                
                 search_queries_to_try = list(dict.fromkeys(search_queries_to_try)) # Remove duplicatas
                 # print(f"   -> Formatos de busca a tentar: {search_queries_to_try}") # Log verboso
 
@@ -177,7 +176,6 @@ def find_event_links(driver):
                                     EC.presence_of_element_located((By.CSS_SELECTOR, event_item_selector)) ))
                             time.sleep(1)
                         except TimeoutException:
-                            # print(f"      AVISO: Nenhum resultado encontrado para '{search_query}'.") # Log menos verboso
                             continue # Pula para o próximo formato
 
                         soup = BeautifulSoup(driver.page_source, 'html.parser')
@@ -198,7 +196,6 @@ def find_event_links(driver):
                                     full_url = href if href.startswith('http') else f"{BASE_URL}{href}"
                                     title_lower = title.lower()
                                     keyword_parts = [p for p in base_keyword.lower().split() if p != "jiu-jitsu"]
-                                    # VERIFICAÇÃO DO TÍTULO: Ano + Partes do Keyword Base Original
                                     match_criteria = str(year) in title and all(part in title_lower for part in keyword_parts)
 
                                     if match_criteria:
@@ -231,10 +228,8 @@ def find_event_links(driver):
     print(f"\nBusca inicial encontrou {len(final_list)} eventos únicos potenciais de {START_YEAR} a {END_YEAR}.")
     return final_list
 
-# --- Função para aplicar filtro de gênero ---
-# (Mantida como na v12.1)
+# Função para aplicar filtro de gênero
 def apply_gender_filter(driver, gender):
-    # print(f"Aplicando filtro de gênero: '{gender}'...") # Log menos verboso
     filter_button_selectors = [
         "//button[@data-test='dropdown-button' and contains(., 'Gender')]",
         "//button[contains(., 'Gender') and contains(@class, 'dropdown')]",
@@ -271,10 +266,8 @@ def apply_gender_filter(driver, gender):
         except: pass
         return False
 
-# --- Função para clicar em "View All" ---
-# (Mantida como na v12.1)
+# Função para clicar no botão "View All"
 def click_load_more(driver):
-      # print("Procurando botão 'View All' ou similar...") # Log menos verboso
       load_more_selectors = [
           "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'view all')]",
           "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'load more')]",
@@ -316,8 +309,7 @@ def click_load_more(driver):
       # else: print("   -> Botão 'View All' / 'Load More' não encontrado.") # Log opcional
       return clicked_any
 
-# --- Função para extrair dados das lutas ---
-# (Mantida como na v12.1 - Filtro de Finais Corrigido)
+# Função para extrair dados das lutas
 def extract_match_data(driver, event_name, event_url, current_gender):
     print(f"Extraindo dados de FINAIS de: {event_url} (Gênero: {current_gender})")
     match_data = []
@@ -340,10 +332,8 @@ def extract_match_data(driver, event_name, event_url, current_gender):
         if event_year == "N/A":
              year_match_fallback = re.search(r'\b(20\d{2})\b', event_name)
              event_year = year_match_fallback.group(1) if year_match_fallback else "N/A"
-        # print(f"   Competição: '{competition_name}' (Ano: {event_year})") # Log menos verboso
 
         result_cards = soup.select('div.grappling-result-card')
-        # print(f"   Processando {len(result_cards)} cards HTML.") # Log menos verboso
         extracted_count = 0
 
         for card_index, card in enumerate(result_cards):
@@ -377,16 +367,15 @@ def extract_match_data(driver, event_name, event_url, current_gender):
                 if remaining_parts: weight = " / ".join(remaining_parts)
 
             # FILTRO DE STAGE (usando a constante definida no topo)
-            stage_lower = stage.lower() # Esta linha FICA AQUI, pois depende do 'stage' do card atual
+            stage_lower = stage.lower() 
 
             if stage == "N/A" or not any(keyword in stage_lower for keyword in TARGET_STAGE_KEYWORDS):
                  continue # Pula se não for uma das fases alvo
 
-            # Extração de dados da final (lógica mantida)
+            # Extração de dados da final
             competitors_info = []
             winner_index = -1; win_detail = ""; detail_tag = None; has_numeric_score = False
             for i, header in enumerate(headers):
-                # ... (extração de nome e score mantida) ...
                 name_tag_a = header.select_one('a.scoreboard__header--title.headline[href*="/people/"]')
                 name_tag_span = header.select_one('span.scoreboard__header--title.headline')
                 name = "N/A"
@@ -405,7 +394,6 @@ def extract_match_data(driver, event_name, event_url, current_gender):
             if detail_tag: win_detail = re.sub(r'^[\s\-()]+|[\s\-()]+$', '', detail_tag.get_text(strip=True)).strip()
 
             # Determina Win Type e Sub Type (lógica mantida)
-            # ... (lógica de determinação de win_type/sub_type mantida igual à v12.1) ...
             final_win_type = "N/A"; final_sub_type = "N/A"; detail_lower = win_detail.lower() if win_detail else ""
             if any(sub in detail_lower for sub in ['armbar','lock','choke','ezekiel','guillotine','katagatame','loop','rnc','rear','ankle','toe','hold','triangle','heel','hook','kneebar','omoplata','submission','footlock','wrist','americana','kimura','mata leao','clock']): final_win_type = "Submission"; final_sub_type = win_detail.title() if win_detail else "Submission"
             elif "points" in detail_lower: final_win_type = "Points"
@@ -430,8 +418,7 @@ def extract_match_data(driver, event_name, event_url, current_gender):
                  except: pass
             else: final_win_type = "Unknown"
 
-            # Adiciona linhas ao resultado (lógica mantida)
-            # ... (lógica de adicionar linhas mantida igual à v12.1) ...
+            # Adiciona linhas ao resultado
             opponent_added_for_wo = False
             for i, comp_info in enumerate(competitors_info):
                 if comp_info['name'] == "N/A":
@@ -455,8 +442,7 @@ def extract_match_data(driver, event_name, event_url, current_gender):
     except Exception as e: print(f"   Erro inesperado em extract_match_data: {e}"); import traceback; traceback.print_exc()
     return match_data
 
-
-# --- Execução Principal ---
+# Execução Principal
 if __name__ == "__main__":
     start_time = time.time()
     print(f"Iniciando script às {time.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -491,7 +477,6 @@ if __name__ == "__main__":
                 else:
                     print(f"\nIniciando processamento de {len(filtered_event_links)} eventos filtrados...")
                     # 2. Processa cada evento FILTRADO
-                    # >>> MODIFICADO: Itera sobre a lista filtrada <<<
                     for i, event in enumerate(filtered_event_links):
                         print(f"\n--- Processando Evento {i+1}/{len(filtered_event_links)}: {event['title']} ---")
                         base_event_url = event['url'].split('/results')[0]
@@ -501,7 +486,6 @@ if __name__ == "__main__":
                         for gender in ["Male", "Female"]:
                             print(f"\n---> Processando gênero: {gender} <---")
                             try:
-                                # print(f"Navegando para: {results_page_url}") # Log menos verboso
                                 driver.get(results_page_url)
                                 time.sleep(SHORT_WAIT)
                                 accept_cookies(driver)
@@ -509,7 +493,6 @@ if __name__ == "__main__":
                                 filter_applied = apply_gender_filter(driver, gender)
 
                                 if filter_applied:
-                                    # print(f"Filtro '{gender}' aplicado. Carregando todos...") # Log menos verboso
                                     click_load_more(driver)
                                     event_data = extract_match_data(driver, event['title'], results_page_url, gender) # Extrai só FINAIS
                                     if event_data: all_results_data.extend(event_data)
